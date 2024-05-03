@@ -1,0 +1,71 @@
+import sqlite3
+
+# Function to create or connect to the database
+def create_connection(db_file):
+    conn = None
+    try:
+        conn = sqlite3.connect(db_file)
+        return conn
+    except sqlite3.Error as e:
+        print(e)
+    return conn
+
+# Function to create the table
+def create_table(conn):
+    try:
+        c = conn.cursor()
+        c.execute('''CREATE TABLE IF NOT EXISTS Counts (org TEXT, count INTEGER)''')
+    except sqlite3.Error as e:
+        print(e)
+
+# Function to update or insert data into the table
+def update_counts(conn, domain):
+    try:
+        c = conn.cursor()
+        c.execute('''SELECT count FROM Counts WHERE org = ?''', (domain,))
+        row = c.fetchone()
+        if row is None:
+            c.execute('''INSERT INTO Counts (org, count) VALUES (?, 1)''', (domain,))
+        else:
+            c.execute('''UPDATE Counts SET count = count + 1 WHERE org = ?''', (domain,))
+        conn.commit()
+    except sqlite3.Error as e:
+        print(e)
+
+# Main function to read mbox.txt and update counts
+def main():
+    conn = create_connection('email_counts.sqlite')
+    if conn is not None:
+        create_table(conn)
+        file_name = input("Enter file name: ")
+        try:
+            with open(file_name, 'r') as f:
+                for line in f:
+                    if line.startswith("From:"):
+                        domain = line.split("@")[1].split()[0]
+                        update_counts(conn, domain)
+        except FileNotFoundError:
+            print("File not found.")
+        conn.close()
+    else:
+        print("Error! Cannot create the database connection.")
+
+# Function to display the counts
+def display_counts():
+    conn = create_connection('email_counts.sqlite')
+    if conn is not None:
+        try:
+            c = conn.cursor()
+            c.execute('''SELECT org, count FROM Counts ORDER BY count DESC''')
+            print("Counts:")
+            for row in c.fetchall():
+                print(row[0], row[1])
+        except sqlite3.Error as e:
+            print(e)
+        conn.close()
+    else:
+        print("Error! Cannot create the database connection.")
+
+if __name__ == '__main__':
+    main()
+    display_counts()
